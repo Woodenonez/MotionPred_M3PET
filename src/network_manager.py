@@ -103,17 +103,19 @@ class NetworkManager():
             loss_function = self.loss_func
         outputs = self.model(data)
 
-        _, [ax1,ax2] = plt.subplots(1,2)
-        try:
-            ax1.imshow(labels.cpu()[0,0,:])
-        except:
-            ax1.imshow(outputs.detach().cpu()[0,0,:])
-            ax1.plot(labels[0,0,0].cpu(), labels[0,0,1].cpu(), 'rx', markersize=5)
-        ax2.imshow(outputs.detach().cpu()[0,0,:])
-        plt.show()
-        while not plt.waitforbuttonpress():
-            pass
-        plt.close()
+        # XXX
+        # _, [ax1,ax2] = plt.subplots(1,2)
+        # try:
+        #     ax1.imshow(labels.cpu()[0,0,:])
+        # except:
+        #     ax1.imshow(outputs.detach().cpu()[0,0,:])
+        #     ax1.plot(labels[0,0,0].cpu(), labels[0,0,1].cpu(), 'rx', markersize=5)
+        # ax2.imshow(outputs.detach().cpu()[0,0,:])
+        # plt.show()
+        # while not plt.waitforbuttonpress():
+        #     pass
+        # plt.close()
+        # XXX
 
         loss = loss_function(outputs, labels)#), inputs=data) # XXX
         return loss

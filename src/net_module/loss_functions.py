@@ -69,6 +69,24 @@ def loss_nll(data, label, inputs=None, sigma:int=10, l2_factor:float=0.01):
         nll = torch.sum(nll, dim=1)
     return torch.mean(nll)
 
+def loss_bnll(data, label, sigma:int=10, l2_factor:float=0.01):
+    r'''
+    data is the energy grid, label should be the index (i,j) meaning which grid cell to choose
+    :data  - BxCxHxW
+    :label - BxTxDo,   T:pred_len, Do: output dimension
+    '''
+
+    weight = get_weight(data, label, sigma=sigma) # Gaussian fashion [BxTxHxW]
+
+    numerator_in_log   = torch.logsumexp(-data+torch.log(weight),   dim=(2,3))
+    denominator_in_log = torch.logsumexp(-data+torch.log(1-weight), dim=(2,3))
+
+    l2 = torch.sum(torch.pow(data,2),dim=(2,3)) / (data.shape[2]*data.shape[3])
+    nll = - numerator_in_log + denominator_in_log + l2_factor*l2
+    if len(label.shape) == 3:
+        nll = torch.sum(nll, dim=1)
+    return torch.mean(nll)
+
 def loss_mse(data, labels): # for batch
     # data, labels - BxMxC
     squared_diff = torch.square(data-labels)
