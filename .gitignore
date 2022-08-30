@@ -10,3 +10,6 @@ src (data v1)/
 # extra comment files
 draft.py
 *.out
+
+# cluster related
+jobscript
