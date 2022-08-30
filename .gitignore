@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# outdated dir
+Archieve/
+Data_V1/
+src (data v1)/
+
+# extra comment files
+draft.py
+*.out
