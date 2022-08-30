@@ -129,7 +129,7 @@ class NetworkManager():
 
     def train(self, data_handler_train, data_handler_val, batch_size, epochs, current_epoch=0):
         print(f'\n{self.prt_name} Training...')
-        report_after_batch = 1000 # XXX 10 for test, 1000 for train
+        report_after_batch = 10 # XXX 10 for test, 1000 for train
         device = 'cpu'
         if self.device in ['multi', 'cuda']:
             device = torch.device("cuda:0")

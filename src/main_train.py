@@ -22,7 +22,7 @@ BATCH_SIZE = 2
 root_dir = Path(__file__).parents[1]
 
 # loss = {'loss': torch.nn.BCEWithLogitsLoss(), 'metric': loss_func.loss_mae}
-loss = {'loss': loss_func.loss_bnll, 'metric': loss_func.loss_mae}
+loss = {'loss': loss_func.loss_enll, 'metric': loss_func.loss_mae}
 config_file = pre_load.load_config_fname(DATASET, PRED_RANGE, MODE)
 composed = torchvision.transforms.Compose([dh.ToTensor()])
 Net = UNetLite

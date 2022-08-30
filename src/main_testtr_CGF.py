@@ -93,9 +93,9 @@ for idx in idc:
         utils_test.plot_Gaussian_ellipses(axes[0,1], mu_list, std_list, conf_list, factor=3, expand=5, alpha=alpha)
 
     ### Zoom in
-    for ax in [axes[0,1]]:
-        ax.set_xlim(min(pred_traj[:,0].min(), label[:,0].min().item())-100, max(pred_traj[:,0].max(), label[:,0].max().item())+100)
-        ax.set_ylim(max(pred_traj[:,1].max(), label[:,1].max().item())+100, min(pred_traj[:,1].min(), label[:,1].min().item())-100)
+    # for ax in [axes[0,1]]:
+    #     ax.set_xlim(min(pred_traj[:,0].min(), label[:,0].min().item())-100, max(pred_traj[:,0].max(), label[:,0].max().item())+100)
+    #     ax.set_ylim(max(pred_traj[:,1].max(), label[:,1].max().item())+100, min(pred_traj[:,1].min(), label[:,1].min().item())-100)
 
     if idx == idc[-1]:
         plt.text(5,5,'Done!',fontsize=20)

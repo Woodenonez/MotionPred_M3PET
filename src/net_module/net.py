@@ -270,6 +270,8 @@ class UNetLite(nn.Module):
         self.up4 = UpBlock(32, 16, bilinear=bilinear, with_batch_norm=with_batch_norm)
         self.outc = nn.Conv2d(16, num_classes, kernel_size=1)
 
+        self.outl = PELU()
+
         self.axes = axes
 
     def forward(self, x):
@@ -283,7 +285,7 @@ class UNetLite(nn.Module):
         x = self.up3(x, x2)
         x = self.up4(x, x1)
         logits = self.outc(x)
-        return logits
+        return self.outl(logits)
 
 class UNet(nn.Module):
     # batch x channel x height x width
