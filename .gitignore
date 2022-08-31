@@ -10,6 +10,9 @@ src (data v1)/
 # extra comment files
 draft.py
 *.out
+*.png
+*.pickle
+*.log
 
 # cluster related
 jobscript

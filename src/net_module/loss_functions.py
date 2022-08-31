@@ -96,8 +96,8 @@ def loss_enll(data, label, sigma:int=10, l2_factor:float=0.01):
 
     weight = get_weight(data, label, sigma=sigma) # Gaussian fashion [BxTxHxW]
 
-    numerator_in_log   = torch.log(torch.sum(data*weight, dim=(2,3)))
-    denominator_in_log = torch.log(torch.sum(data, dim=(2,3)))
+    numerator_in_log   = torch.logsumexp(torch.log(data*weight),   dim=(2,3))
+    denominator_in_log = torch.logsumexp(torch.log(data), dim=(2,3))
 
     l2 = torch.sum(torch.pow(data,2),dim=(2,3)) / (data.shape[2]*data.shape[3])
     nll = - numerator_in_log + denominator_in_log + l2_factor*l2

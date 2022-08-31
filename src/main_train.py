@@ -13,10 +13,16 @@ import pre_load
 print("Program: training\n")
 
 DATASET = 'GCD'
-MODE = 'TRAIN'
+MODE = 'TRAIN'  # 'TRAIN' or 'TEST'
+RUNON = 'LOCAL' # 'LOCAL' or 'REMOTE'
 PRED_RANGE = (1,20) # E.g. (1,10) means 1 to 10
 
-BATCH_SIZE = 2
+if RUNON == 'LOCAL':
+    BATCH_SIZE = 2
+    num_workers = 0
+else:
+    BATCH_SIZE = None
+    num_workers = 4
 
 ### Config
 root_dir = Path(__file__).parents[1]
@@ -28,6 +34,6 @@ composed = torchvision.transforms.Compose([dh.ToTensor()])
 Net = UNetLite
 
 ### Training
-pre_load.main_train(root_dir, config_file, Net=Net, transform=composed, loss=loss, num_workers=0, 
-                    batch_size=BATCH_SIZE, T_range=PRED_RANGE, ref_image_name=None)
+pre_load.main_train(root_dir, config_file, Net=Net, transform=composed, loss=loss, num_workers=num_workers, 
+                    batch_size=BATCH_SIZE, T_range=PRED_RANGE, ref_image_name=None, runon=RUNON)
 

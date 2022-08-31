@@ -11,7 +11,7 @@ import torch.optim as optim
 from timeit import default_timer as timer
 from datetime import timedelta
 
-from util import utils_kmean
+# from util import utils_kmean
 from sklearn.cluster import DBSCAN
 
 from net_module import loss_functions
@@ -127,9 +127,15 @@ class NetworkManager():
         self.optimizer.step()
         return loss
 
-    def train(self, data_handler_train, data_handler_val, batch_size, epochs, current_epoch=0):
+    def train(self, data_handler_train, data_handler_val, batch_size, epochs, current_epoch=0, runon='LOCAL'):
         print(f'\n{self.prt_name} Training...')
-        report_after_batch = 10 # XXX 10 for test, 1000 for train
+        if runon == 'LOCAL':
+            report_after_batch = 10   # XXX 10 for test, 1000 for train
+        elif runon == 'REMOTE':
+            report_after_batch = 1000 # XXX 10 for test, 1000 for train
+        else:
+            raise ModuleNotFoundError('RUNON ERROR.')
+
         device = 'cpu'
         if self.device in ['multi', 'cuda']:
             device = torch.device("cuda:0")
@@ -150,7 +156,7 @@ class NetworkManager():
                 cnt += 1
                 cnt_per_epoch += 1
 
-                if cnt_per_epoch>200:
+                if (runon == 'LOCAL') & (cnt_per_epoch>200): # XXX
                     break
 
                 batch_time_start = timer() ### TIMER
@@ -180,34 +186,35 @@ class NetworkManager():
             # epoch done
 
             ### Testing
-            cnt_per_epoch = 0 # counter for batches within the epoch
-            test_ADE_list = []
-            while (cnt_per_epoch<data_handler_val.get_num_batch()):
-                cnt_per_epoch += 1
+            # cnt_per_epoch = 0 # counter for batches within the epoch
+            # test_ADE_list = []
+            # while (cnt_per_epoch<data_handler_val.get_num_batch()):
+            #     cnt_per_epoch += 1
 
-                if cnt_per_epoch>5:
-                    break
+            #     if cnt_per_epoch>5:
+            #         break
 
-                test_data, test_label = data_handler_val.return_batch()
-                test_data, test_label = test_data.float().to(device), test_label.float().to(device)
-                if isinstance(self.loss_func, torch.nn.BCEWithLogitsLoss):
-                    test_label = loss_functions.get_weight(test_data, test_label, sigma=20) # default sigma is 20
-                test_ADE = self.test(test_data, test_label, input_prob=isinstance(self.loss_func, torch.nn.BCEWithLogitsLoss)) # test here
-                test_ADE_list.append(test_ADE)
-            print(f'Test ADE: {np.mean(test_ADE_list)}')
+            #     test_data, test_label = data_handler_val.return_batch()
+            #     test_data, test_label = test_data.float().to(device), test_label.float().to(device)
+            #     if isinstance(self.loss_func, torch.nn.BCEWithLogitsLoss):
+            #         test_label = loss_functions.get_weight(test_data, test_label, sigma=20) # default sigma is 20
+            #     test_ADE = self.test(test_data, test_label, input_prob=isinstance(self.loss_func, torch.nn.BCEWithLogitsLoss)) # test here
+            #     test_ADE_list.append(test_ADE)
+            # print(f'Test ADE: {np.mean(test_ADE_list)}')
 
-            if np.mean(test_ADE_list) < min_test_loss:
-                min_test_loss = np.mean(test_ADE_list)
-                num_epochs_no_improve = 0
-                if self.cp is not None:
-                    self.save_checkpoint(self.model, self.optimizer, save_path=os.path.join(self.cp, f'ckp.pt'),
-                        epoch=ep, loss=self.Loss[-1])
-            else:
-                num_epochs_no_improve += 1
+            # if np.mean(test_ADE_list) < min_test_loss:
+            #     min_test_loss = np.mean(test_ADE_list)
+            #     num_epochs_no_improve = 0
+            #     if self.cp is not None:
+            #         self.save_checkpoint(self.model, self.optimizer, save_path=os.path.join(self.cp, f'ckp.pt'),
+            #             epoch=ep, loss=self.Loss[-1])
+            # else:
+            #     num_epochs_no_improve += 1
 
-            if (self.es > 0) & (num_epochs_no_improve >= self.es):
-                print(f'\n{self.prt_name} Early stopping after {self.es} epochs with no improvement.')
-                break
+            # if (self.es > 0) & (num_epochs_no_improve >= self.es):
+            #     print(f'\n{self.prt_name} Early stopping after {self.es} epochs with no improvement.')
+            #     break
+            ### Test end
 
             self.epoch_time.append(timer()-epoch_time_start)  ### TIMER
             self.lr_scheduler.step() # end while
@@ -322,28 +329,28 @@ class NetworkManager():
         output = torch.cat([expected_x, expected_y], dim=-1).view(X.shape[0], X.shape[1], 2)
         return output
 
-    @staticmethod
-    def ynet_TTST(probability_map:torch.tensor, num_hypos:int) -> torch.tensor:
-        goal_samples = NetworkManager.gen_samples(probability_map[:, -1:], num_samples=10000, replacement=True)
-        goal_samples = goal_samples.permute(2, 0, 1, 3)
+    # @staticmethod
+    # def ynet_TTST(probability_map:torch.tensor, num_hypos:int) -> torch.tensor:
+    #     goal_samples = NetworkManager.gen_samples(probability_map[:, -1:], num_samples=10000, replacement=True)
+    #     goal_samples = goal_samples.permute(2, 0, 1, 3)
 
-        num_clusters = num_hypos - 1
-        goal_samples_softargmax = NetworkManager.softargmax_torch(probability_map[:, -1:])  # first sample is softargmax sample
+    #     num_clusters = num_hypos - 1
+    #     goal_samples_softargmax = NetworkManager.softargmax_torch(probability_map[:, -1:])  # first sample is softargmax sample
 
-        # Iterate through all person/batch_num, as this k-Means implementation doesn't support batched clustering
-        goal_samples_list = []
-        for person in range(goal_samples.shape[1]):
-            goal_sample = goal_samples[:, person, 0]
+    #     # Iterate through all person/batch_num, as this k-Means implementation doesn't support batched clustering
+    #     goal_samples_list = []
+    #     for person in range(goal_samples.shape[1]):
+    #         goal_sample = goal_samples[:, person, 0]
 
-            # Actual k-means clustering, Outputs:
-            # cluster_ids_x -  Information to which cluster_idx each point belongs to
-            # cluster_centers - list of centroids, which are our new goal samples
-            cluster_ids_x, cluster_centers = utils_kmean.kmeans(X=goal_sample, num_clusters=num_clusters, distance='euclidean', device=probability_map.device, tqdm_flag=False, tol=0.001, iter_limit=1000)
-            goal_samples_list.append(cluster_centers)
+    #         # Actual k-means clustering, Outputs:
+    #         # cluster_ids_x -  Information to which cluster_idx each point belongs to
+    #         # cluster_centers - list of centroids, which are our new goal samples
+    #         cluster_ids_x, cluster_centers = utils_kmean.kmeans(X=goal_sample, num_clusters=num_clusters, distance='euclidean', device=probability_map.device, tqdm_flag=False, tol=0.001, iter_limit=1000)
+    #         goal_samples_list.append(cluster_centers)
 
-        goal_samples = torch.stack(goal_samples_list).permute(1, 0, 2).unsqueeze(2)
-        goal_samples = torch.cat([goal_samples_softargmax.unsqueeze(0), goal_samples], dim=0)
-        return goal_samples # KxBxCx2
+    #     goal_samples = torch.stack(goal_samples_list).permute(1, 0, 2).unsqueeze(2)
+    #     goal_samples = torch.cat([goal_samples_softargmax.unsqueeze(0), goal_samples], dim=0)
+    #     return goal_samples # KxBxCx2
 
     
 

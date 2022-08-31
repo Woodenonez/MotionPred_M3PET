@@ -68,7 +68,7 @@ def save_profile(manager, save_path='./'):
         pickle.dump(loss_dict, pf)
 
 def main_train(root_dir, config_file, transform, Net, loss, num_workers:int, batch_size:int=None, 
-               T_range:tuple=None, ref_image_name:str=None, image_ext='png'):
+               T_range:tuple=None, ref_image_name:str=None, image_ext='png', runon='LOCAL'):
     ### Check and load
     check_device()
     param = load_param(root_dir, config_file)
