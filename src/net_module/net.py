@@ -34,9 +34,13 @@ class PELU(nn.Module):
         Only the negative part of the exponential retains.
         The positive part is linear: y=x+1.
     '''
+    def __init__(self, offset=0) -> None:
+         super().__init__()
+         self.offset = offset
+
     def forward(self, x):
         l = nn.ELU() # ELU: max(0,x)+min(0,α∗(exp(x)−1))
-        return torch.add(l(x), 1) # assure no negative sigma produces!!!
+        return torch.add(l(x), 1+self.offset) # assure no negative sigma produces!!!
 
 class DoubleConv(nn.Module):
     def __init__(self, in_channels, out_channels, mid_channels=None, with_batch_norm=True):
@@ -270,21 +274,22 @@ class UNetLite(nn.Module):
         self.up4 = UpBlock(32, 16, bilinear=bilinear, with_batch_norm=with_batch_norm)
         self.outc = nn.Conv2d(16, num_classes, kernel_size=1)
 
-        self.outl = PELU()
+        self.outl = PELU(0.01)
 
         self.axes = axes
 
     def forward(self, x):
+        # _, [ax1,ax2] = plt.subplots(1,2); ax1.imshow(self.outl(logits)[0,-1,:].detach().cpu()), ax2.imshow(x[0,-2,:].detach().cpu())
         x1 = self.inc(x)
         x2 = self.down1(x1)
         x3 = self.down2(x2)
         x4 = self.down3(x3)
         x5 = self.down4(x4)
-        x = self.up1(x5, x4)
-        x = self.up2(x, x3)
-        x = self.up3(x, x2)
-        x = self.up4(x, x1)
-        logits = self.outc(x)
+        x0 = self.up1(x5, x4)
+        x0 = self.up2(x0, x3)
+        x0 = self.up3(x0, x2)
+        x0 = self.up4(x0, x1)
+        logits = self.outc(x0)
         return self.outl(logits)
 
 class UNet(nn.Module):

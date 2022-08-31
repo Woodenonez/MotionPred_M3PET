@@ -30,7 +30,7 @@ def get_weight(grid, index, sigma, rho=0):
     weight[weight<0.1] = 0
     return weight
 
-def loss_nll(data, label, inputs=None, sigma:int=10, l2_factor:float=0.01):
+def loss_nll(data, label, inputs=None, sigma:int=10, l2_factor:float=0.00):
     r'''
     data is the energy grid, label should be the index (i,j) meaning which grid cell to choose
     :data  - BxCxHxW
@@ -69,7 +69,7 @@ def loss_nll(data, label, inputs=None, sigma:int=10, l2_factor:float=0.01):
         nll = torch.sum(nll, dim=1)
     return torch.mean(nll)
 
-def loss_bnll(data, label, sigma:int=10, l2_factor:float=0.01):
+def loss_bnll(data, label, sigma:int=10, l2_factor:float=0.00):
     r'''
     data is the energy grid, label should be the index (i,j) meaning which grid cell to choose
     :data  - BxCxHxW
@@ -87,7 +87,7 @@ def loss_bnll(data, label, sigma:int=10, l2_factor:float=0.01):
         nll = torch.sum(nll, dim=1)
     return torch.mean(nll)
 
-def loss_enll(data, label, sigma:int=10, l2_factor:float=0.01):
+def loss_enll(data, label, sigma:int=10, l2_factor:float=0.00):
     r'''
     data is the energy grid, label should be the index (i,j) meaning which grid cell to choose
     :data  - BxCxHxW
