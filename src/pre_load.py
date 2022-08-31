@@ -83,7 +83,7 @@ def main_train(root_dir, config_file, transform, Net, loss, num_workers:int, bat
 
     ### Training
     start_time = time.time()
-    myNet.train(myDH, myDH, param['batch_size'], param['epoch'])
+    myNet.train(myDH, myDH, param['batch_size'], param['epoch'], runon=runon)
     total_time = round((time.time()-start_time)/3600, 4)
     if (paths[0] is not None) & myNet.complete:
         torch.save(myNet.model.state_dict(), paths[0])

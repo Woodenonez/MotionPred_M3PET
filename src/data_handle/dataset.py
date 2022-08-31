@@ -66,8 +66,8 @@ class ImageStackDataset(Dataset):
             traj.append([this_x,this_y])
 
             # XXX
-            obj_map = utils_np.np_gaudist_map((this_x, this_y), np.zeros_like(image), sigmas=[10,10])
-            # obj_map = utils_np.np_dist_map((this_x, this_y), np.zeros_like(image))
+            # obj_map = utils_np.np_gaudist_map((this_x, this_y), np.zeros_like(image), sigmas=[10,10])
+            obj_map = utils_np.np_dist_map((this_x, this_y), np.zeros_like(image))
             input_img = np.concatenate((input_img, obj_map[:,:,np.newaxis]), axis=2)
         input_img = np.concatenate((input_img, image[:,:,np.newaxis]), axis=2)
         
