@@ -106,10 +106,9 @@ class ImageStackDataset(Dataset):
 
     def check_img_shape(self, img_name=None):
         info = self.info_frame.iloc[0]
-        if img_name is not None:
-            img_name = img_name
         video_folder = str(info['index'])
-        img_name = video_folder + '.' + self.ext
+        if img_name is None:
+            img_name = video_folder + '.' + self.ext
         img_path = os.path.join(self.root_dir, video_folder, img_name)
         image = self.togray(io.imread(img_path))
         return image.shape

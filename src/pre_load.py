@@ -32,7 +32,10 @@ def load_config_fname(dataset_name, pred_range, mode):
 def load_param(root_dir, config_file, param_in_list=True, verbose=True):
     if param_in_list:
         param_list = utils_yaml.from_yaml_all(os.path.join(root_dir, 'Config/', config_file), vb=verbose)
-        return {**param_list[0], **param_list[1], **param_list[2]}
+        try:
+            return {**param_list[0], **param_list[1], **param_list[2], **param_list[3]}
+        except:
+            return {**param_list[0], **param_list[1], **param_list[2]}
     else:
         return utils_yaml.from_yaml(os.path.join(root_dir, 'Config/', config_file), vb=verbose)
 

@@ -25,9 +25,10 @@ torch.cuda.empty_cache()
 ### Config
 root_dir = Path(__file__).parents[1]
 # config_file = 'sdd_1t12_train.yml'
+# ref_image_name = 'label.png'
 config_file = 'gcd_1t20_train.yml'
-param = pre_load.load_param(root_dir, config_file, verbose=False)
 ref_image_name = None #'label.png'
+param = pre_load.load_param(root_dir, config_file, verbose=False)
 
 composed = torchvision.transforms.Compose([dh.ToTensor()])
 Dataset = ds.ImageStackDataset
@@ -51,7 +52,10 @@ for idx in idc:
     [ax.cla() for ax in axes.ravel()]
     
     img, label, traj, index, e_grid, ref = pre_load.main_test(dataset, net, idx=idx)
-    prob_map = net.convert_grid2prob(e_grid.clone(), threshold=0.1, temperature=1)
+    try:
+        prob_map = net.convert_grid2prob(e_grid.clone(), threshold=0.1, temperature=1)
+    except:
+        prob_map = e_grid.clone()
     pred_traj = utils_test.get_traj_from_pmap(prob_map)
 
     if ref is None:
