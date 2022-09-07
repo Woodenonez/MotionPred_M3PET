@@ -5,17 +5,30 @@ import torch
 import torchvision
 
 from net_module import loss_functions as loss_func
-from net_module.net import UNet, UNetLite
+from net_module.net import UNet, UNetLite, UNetLite_PELU
 from data_handle import data_handler as dh
 
 import pre_load
 
 print("Program: training\n")
 
-DATASET = 'GCD'
+# DATASET = 'GCD'
+# MODE = 'TRAIN'  # 'TRAIN' or 'TEST'
+# RUNON = 'LOCAL' # 'LOCAL' or 'REMOTE'
+# PRED_RANGE = (1,20) # E.g. (1,10) means 1 to 10
+# ref_image_name = None
+
+DATASET = 'SIDv2a'
 MODE = 'TRAIN'  # 'TRAIN' or 'TEST'
 RUNON = 'LOCAL' # 'LOCAL' or 'REMOTE'
-PRED_RANGE = (1,20) # E.g. (1,10) means 1 to 10
+PRED_RANGE = (1,10) # E.g. (1,10) means 1 to 10
+ref_image_name = None
+
+# DATASET = 'SDD'
+# MODE = 'TRAIN'  # 'TRAIN' or 'TEST'
+# RUNON = 'LOCAL' # 'LOCAL' or 'REMOTE'
+# PRED_RANGE = (1,12) # E.g. (1,10) means 1 to 10
+# ref_image_name = 'label.png'
 
 if RUNON == 'LOCAL':
     BATCH_SIZE = 2
@@ -31,7 +44,7 @@ root_dir = Path(__file__).parents[1]
 loss = {'loss': loss_func.loss_enll, 'metric': loss_func.loss_mae}
 config_file = pre_load.load_config_fname(DATASET, PRED_RANGE, MODE)
 composed = torchvision.transforms.Compose([dh.ToTensor()])
-Net = UNetLite
+Net = UNetLite_PELU
 
 ### Training
 pre_load.main_train(root_dir, config_file, Net=Net, transform=composed, loss=loss, num_workers=num_workers, 

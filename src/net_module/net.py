@@ -274,7 +274,40 @@ class UNetLite(nn.Module):
         self.up4 = UpBlock(32, 16, bilinear=bilinear, with_batch_norm=with_batch_norm)
         self.outc = nn.Conv2d(16, num_classes, kernel_size=1)
 
-        self.outl = PELU(0.01)
+        self.axes = axes
+
+    def forward(self, x):
+        # _, [ax1,ax2] = plt.subplots(1,2); ax1.imshow(self.outl(logits)[0,-1,:].detach().cpu()), ax2.imshow(x[0,-2,:].detach().cpu())
+        x1 = self.inc(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+        x5 = self.down4(x4)
+        x0 = self.up1(x5, x4)
+        x0 = self.up2(x0, x3)
+        x0 = self.up3(x0, x2)
+        x0 = self.up4(x0, x1)
+        logits = self.outc(x0)
+        return logits
+
+class UNetLite_PELU(nn.Module):
+    # batch x channel x height x width
+    def __init__(self, in_channels, num_classes=1, with_batch_norm=True, bilinear=True, axes=None):
+        super(UNetLite_PELU,self).__init__()
+
+        self.inc = DoubleConv(in_channels, 16, with_batch_norm=with_batch_norm)
+        self.down1 = DownBlock(16, 32, with_batch_norm=with_batch_norm)
+        self.down2 = DownBlock(32, 64, with_batch_norm=with_batch_norm)
+        self.down3 = DownBlock(64, 128, with_batch_norm=with_batch_norm)
+        factor = 2 if bilinear else 1
+        self.down4 = DownBlock(128, 256 // factor, with_batch_norm=with_batch_norm)
+        self.up1 = UpBlock(256, 128 // factor, bilinear=bilinear, with_batch_norm=with_batch_norm)
+        self.up2 = UpBlock(128, 64 // factor, bilinear=bilinear, with_batch_norm=with_batch_norm)
+        self.up3 = UpBlock(64, 32 // factor, bilinear=bilinear, with_batch_norm=with_batch_norm)
+        self.up4 = UpBlock(32, 16, bilinear=bilinear, with_batch_norm=with_batch_norm)
+        self.outc = nn.Conv2d(16, num_classes, kernel_size=1)
+
+        self.outl = PELU(1e-6)
 
         self.axes = axes
 

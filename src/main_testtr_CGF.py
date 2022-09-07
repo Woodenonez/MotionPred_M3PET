@@ -1,5 +1,6 @@
 import os, sys
 from pathlib import Path
+from copy import deepcopy as copy
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,7 +8,7 @@ import matplotlib.pyplot as plt
 import torch
 import torchvision
 
-from net_module.net import UNet, UNetLite
+from net_module.net import UNet, UNetLite, UNetLite_PELU
 from data_handle import data_handler as dh
 from data_handle import dataset as ds
 
@@ -22,12 +23,20 @@ else:
     sys.exit(0)
 torch.cuda.empty_cache()
 
+### XXX Back to energy map
+def back2energy(x):
+    x_original = copy(x)
+    x[x_original>=1] *= -1
+    x[x_original<1] = -torch.log(x[x_original<1])
+    return x
+
+
 ### Config
 root_dir = Path(__file__).parents[1]
-# config_file = 'sdd_1t12_train.yml'
-# ref_image_name = 'label.png'
-config_file = 'gcd_1t20_train.yml'
-ref_image_name = None #'label.png'
+config_file = 'sdd_1t12_train.yml'
+ref_image_name = 'label.png'
+# config_file = 'gcd_1t20_train.yml'
+# ref_image_name = None #'label.png'
 param = pre_load.load_param(root_dir, config_file, verbose=False)
 
 composed = torchvision.transforms.Compose([dh.ToTensor()])
@@ -38,7 +47,7 @@ Net = UNetLite
 dataset, _, net = pre_load.main_test_pre(root_dir, config_file, composed, Net, ref_image_name=ref_image_name)
 
 ### Visualization option
-idx_start = 0#10650 # 20800 # 17850 # 250
+idx_start = 10915#10650 # 10915 # 17850 # 250
 idx_end = len(dataset)
 pause_time = 0
 
@@ -56,6 +65,8 @@ for idx in idc:
         prob_map = net.convert_grid2prob(e_grid.clone(), threshold=0.1, temperature=1)
     except:
         prob_map = e_grid.clone()
+        prob_map[prob_map<0.011] = 0
+        e_grid = back2energy(e_grid)
     pred_traj = utils_test.get_traj_from_pmap(prob_map)
 
     if ref is None:

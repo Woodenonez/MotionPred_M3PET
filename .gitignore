@@ -7,6 +7,9 @@ Archieve/
 Data_V1/
 src (data v1)/
 
+# large files or dir
+Data/SDD*
+
 # extra comment files
 draft.py
 *.out
