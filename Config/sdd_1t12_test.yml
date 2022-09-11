@@ -20,4 +20,4 @@ data_name: SDD_1t12seg_test
 data_path: Data/SDD_1t12seg_test
 label_csv: all_data.csv
 label_path: Data/SDD_1t12seg_test/all_data.csv
-model_path: Model/sdd_1t12
+model_path: Model/sdd_1t12_pelu_2

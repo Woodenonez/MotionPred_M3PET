@@ -69,6 +69,7 @@ def loss_nll(data, label, inputs=None, sigma:int=10, l2_factor:float=0.00):
         nll = torch.sum(nll, dim=1)
     return torch.mean(nll)
 
+# XXX
 def loss_bnll(data, label, sigma:int=10, l2_factor:float=0.00):
     r'''
     data is the energy grid, label should be the index (i,j) meaning which grid cell to choose
