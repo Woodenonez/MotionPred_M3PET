@@ -9,6 +9,7 @@ src (data v1)/
 
 # large files or dir
 Data/SDD*
+Data/
 
 # extra comment files
 draft.py
