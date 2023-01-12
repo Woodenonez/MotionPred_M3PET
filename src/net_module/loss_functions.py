@@ -1,4 +1,6 @@
-import os, sys
+import os
+import sys
+import math
 
 import torch
 
@@ -32,7 +34,7 @@ def get_weight(grid:torch.Tensor, coords:torch.Tensor, sigmas:Indexable, rho=0, 
     in_exp = -1/(2*(1-rho**2)) * ((x-coords[:,:,0])**2/(sigma_x**2) 
                                 + (y-coords[:,:,1])**2/(sigma_y**2) 
                                 - 2*rho*(x-coords[:,:,0])/(sigma_x)*(y-coords[:,:,1])/(sigma_y))
-    weight = 1/(2*torch.pi*sigma_x*sigma_y*torch.sqrt(torch.tensor(1-rho**2))) * torch.exp(in_exp)
+    weight = 1/(2*math.pi*sigma_x*sigma_y*torch.sqrt(torch.tensor(1-rho**2))) * torch.exp(in_exp)
     if normalized:
         weight = weight/(weight.amax(dim=(2,3))[:,:,None,None])
         weight[weight<0.1] = 0
