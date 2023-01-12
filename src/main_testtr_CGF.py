@@ -8,12 +8,14 @@ import matplotlib.pyplot as plt
 import torch
 import torchvision
 
-from net_module.net import UNet, UNet_PELU, UNetLite, UNetLite_PELU
+from net_module.net import UNet, UNet_PELU, UNetLite, UNetLite_PELU, UNetLite_SP
 from data_handle import data_handler as dh
 from data_handle import dataset as ds
 
 import pre_load
 from util import utils_test
+
+from sklearn.mixture import GaussianMixture
 
 print("Program: testing\n")
 if torch.cuda.is_available():
@@ -35,9 +37,9 @@ def back2energy(x):
 root_dir = Path(__file__).parents[1]
 # config_file = 'sdd_1t12_train.yml'
 # ref_image_name = 'label.png'
-# config_file = 'gcd_1t20_train.yml'
-# ref_image_name = None
-config_file = 'sidv2e_1t10_train.yml'
+# # config_file = 'gcd_1t20_train.yml'
+# # ref_image_name = None
+config_file = 'sidv2x_1t10_train.yml'
 ref_image_name = None
 param = pre_load.load_param(root_dir, config_file, verbose=False)
 
@@ -80,7 +82,8 @@ for idx in idc:
     mu_list_list = []
     std_list_list = []
     conf_list_list = []
-    traj_samples = net.gen_samples(prob_map, num_samples=50, replacement=True)
+    gmm_list = []
+    traj_samples = net.gen_samples(prob_map, num_samples=500, replacement=True)
     for i in range(prob_map.shape[1]):
         # goal_samples = utils_func.ynet_TTST(prob_map[:,i,:,:].unsqueeze(1), 20)
         # clusters = utils_test.fit_DBSCAN(goal_samples[:,0,0,:].numpy(), eps=5, min_sample=3)
@@ -89,11 +92,15 @@ for idx in idc:
         # confidence = prob_map[0, i, prob_y.long(), prob_x.long()]
 
         clusters = net.fit_DBSCAN(traj_samples[0,i,:].numpy(), eps=10, min_sample=5)
+
+        gmm = GaussianMixture(n_components=len(clusters)).fit(traj_samples[0,i,:])
+        gmm_list.append(gmm)
+
         mu_list, std_list = net.fit_cluster2gaussian(clusters)
 
         conf_list = []
         for mu in mu_list:
-            conf_list.append(prob_map[0, i, int(mu[1]), int(mu[0])].item()+1e-9)
+            conf_list.append(prob_map[0, i, int(mu[1]), int(mu[0])].item() + 1e-9)
         conf_list = [round(x/sum(conf_list),2) for x in conf_list]
 
         mu_list_list.append(mu_list)
@@ -104,6 +111,10 @@ for idx in idc:
 
     utils_test.plot_on_ref([axes[0,0], axes[1,0], axes[1,1]], ref, traj, label,
                             e_grid[0,-1], prob_map[0,-1], traj_samples)
+
+    for gmm in gmm_list:
+        axes[1,0].plot(gmm.means_[:,0], gmm.means_[:,1], 'yo')
+        [axes[1,0].text(gmm.means_[j,0], gmm.means_[j,1], gmm.weights_[j]) for j in range(len(gmm.weights_))]
 
     axes[0,1].imshow(ref, cmap='gray')
     axes[0,1].plot(traj[-1,0], traj[-1,1], 'ro', label='current')

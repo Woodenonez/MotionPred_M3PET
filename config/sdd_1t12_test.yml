@@ -17,7 +17,6 @@ x_max_px: 595
 y_max_px: 326
 ---
 data_name: SDD_1t12seg_test
-data_path: Data/SDD_1t12seg_test
-label_csv: all_data.csv
-label_path: Data/SDD_1t12seg_test/all_data.csv
+data_path: data/SDD_1t12seg_test
+label_path: data/SDD_1t12seg_test/all_data.csv
 model_path: Model/sdd_1t12_pelu_2

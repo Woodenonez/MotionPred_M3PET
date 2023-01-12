@@ -17,7 +17,6 @@ x_max_px: 595
 y_max_px: 326
 ---
 data_name: SID_20_train
-data_path: Data/SID_20_train
-label_csv: all_data.csv
-label_path: Data/SID_20_train/all_data.csv
+data_path: data/SID_20_train
+label_path: data/SID_20_train/all_data.csv
 model_path: Model/sid_20

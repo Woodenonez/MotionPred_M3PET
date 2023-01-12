@@ -1,46 +1,44 @@
 import os, sys
 import time
+import pickle
+from datetime import datetime
+
 import torch
 
-import numpy as np
 import matplotlib.pyplot as plt
 
-from net_module import loss_functions as loss_func
 from network_manager import NetworkManager
+# from network_manager_multiout import NetworkManager
 from data_handle import data_handler as dh
 from data_handle import dataset as ds
 
 from util import utils_yaml
 
-import pickle
-from datetime import datetime
 
-PRT_NAME = '[PRE]'
+__PRT_NAME = '[PRE]'
 
 def check_device():
     if torch.cuda.is_available():
         print('GPU count:', torch.cuda.device_count(),
-              'Current 1:', torch.cuda.current_device(), torch.cuda.get_device_name(0))
+              'First GPU:', torch.cuda.current_device(), torch.cuda.get_device_name(0))
     else:
         print(f'CUDA not working! Pytorch: {torch.__version__}.')
         sys.exit(0)
     torch.cuda.empty_cache()
+    print(f'{__PRT_NAME} Pre-check at {datetime.now().strftime("%H:%M:%S, %D")}')
 
 def load_config_fname(dataset_name, pred_range, mode):
     return f'{dataset_name.lower()}_{pred_range[0]}t{pred_range[1]}_{mode.lower()}.yml'
 
 def load_param(root_dir, config_file, param_in_list=True, verbose=True):
     if param_in_list:
-        param_list = utils_yaml.from_yaml_all(os.path.join(root_dir, 'Config/', config_file), vb=verbose)
-        try:
-            return {**param_list[0], **param_list[1], **param_list[2], **param_list[3]}
-        except:
-            return {**param_list[0], **param_list[1], **param_list[2]}
+        param_list = utils_yaml.from_yaml_all(os.path.join(root_dir, 'config/', config_file), vb=verbose)
+        return {k:v for x in param_list for k,v in x.items()}
     else:
-        return utils_yaml.from_yaml(os.path.join(root_dir, 'Config/', config_file), vb=verbose)
+        return utils_yaml.from_yaml(os.path.join(root_dir, 'config/', config_file), vb=verbose)
 
 def load_path(param, root_dir):
-    save_path = None
+    save_path = None # to save the model
     if param['model_path'] is not None:
         save_path = os.path.join(root_dir, param['model_path'])
     csv_path  = os.path.join(root_dir, param['label_path'])
@@ -51,17 +49,20 @@ def load_data(param, paths, transform, num_workers=0, T_range=None, ref_image_na
     myDS = ds.ImageStackDataset(csv_path=paths[1], root_dir=paths[2], transform=transform,
                 pred_offset_range=T_range, ref_image_name=ref_image_name, image_ext=image_ext)
     myDH = dh.DataHandler(myDS, batch_size=param['batch_size'], num_workers=num_workers)
-    print(f'{PRT_NAME} Data prepared. #Samples(training, val):{myDH.get_num_data()}, #Batches:{myDH.get_num_batch()}')
-    print(f'{PRT_NAME} Sample: \'image\':',myDS[0]['input'].shape,'\'label\':',myDS[0]['target'].shape)
+    print(f'{__PRT_NAME} Data prepared. #Samples(training, val):{myDH.get_num_data()}, #Batches:{myDH.get_num_batch()}')
+    print(f'{__PRT_NAME} Sample (shape): \'image\':',myDS[0]['input'].shape,'\'label\':',myDS[0]['target'].shape)
     return myDS, myDH
 
 def load_manager(param, Net, loss, verbose=True):
-    net = Net(param['input_channel'], param['pred_len']) # in, out channels
+    # en_chs = [16, 32,  64,  128, 256] # XXX
+    # de_chs = en_chs[::-1]             # XXX
+    # net = Net(param['input_channel'], en_chs, de_chs, param['pred_len'], out_layer=None) # XXX
+    net = Net(param['input_channel'],  param['pred_len']) # in, out channels
     myNet = NetworkManager(net, loss, training_parameter=param, device=param['device'], verbose=verbose)
     myNet.build_Network()
     return myNet
 
-def save_profile(manager, save_path='./'):
+def save_profile(manager:NetworkManager, save_path:str='./'): # NOTE optional
     dt = datetime.now().strftime("%d_%m_%Y__%H_%M_%S")
     manager.plot_history_loss()
     plt.savefig(os.path.join(save_path, dt+'.png'), bbox_inches='tight')
@@ -78,7 +79,7 @@ def main_train(root_dir, config_file, transform, Net, loss, num_workers:int, bat
     if batch_size is not None:
         param['batch_size'] = batch_size # replace the batch_size
 
-    print(f'[Starting...] Model - {param["model_path"]}')
+    print(f'{__PRT_NAME} Model - {param["model_path"]}')
         
     paths = load_path(param, root_dir)
     _, myDH = load_data(param, paths, transform, num_workers, T_range, ref_image_name, image_ext)
@@ -91,7 +92,7 @@ def main_train(root_dir, config_file, transform, Net, loss, num_workers:int, bat
     if (paths[0] is not None) & myNet.complete:
         torch.save(myNet.model.state_dict(), paths[0])
     nparams = sum(p.numel() for p in myNet.model.parameters() if p.requires_grad)
-    print("\nTraining done: {} parameters. Cost time: {}h.".format(nparams, total_time))
+    print(f'\n{__PRT_NAME} Training done: {nparams} parameters. Cost time: {total_time}h.')
 
     save_profile(myNet)
 

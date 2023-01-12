@@ -96,10 +96,10 @@ class NetworkManager():
             output = self.model(data.float().to(device))
         return output
 
-    def validate(self, data, labels, loss_function=None):
+    def validate(self, data, label, loss_function=None):
         if loss_function is None:
             loss_function = self.loss_func
-        outputs = self.model(data)
+        output_list = self.model(data)
 
         # XXX
         # _, [ax1,ax2] = plt.subplots(1,2)
@@ -115,7 +115,14 @@ class NetworkManager():
         # plt.close()
         # XXX
 
-        loss = loss_function(outputs, labels)#), inputs=data) # XXX
+        label_list = [label] # NOTE
+        for _ in range(len(output_list)-1):
+            label_list.append(torch.div(label_list[-1],2,rounding_mode='floor'))
+        label_list = label_list[::-1] # the last one is the final label
+
+        loss = 0
+        for outputs, labels in zip(output_list, label_list):
+            loss += loss_function(outputs, labels)#), inputs=data) # XXX
         return loss
 
     def train_batch(self, batch, label, loss_function=None):
@@ -159,8 +166,6 @@ class NetworkManager():
                 batch, label = data_handler_train.return_batch()
                 batch, label = batch.float().to(device), label.float().to(device)
                 
-                if isinstance(self.loss_func, torch.nn.BCEWithLogitsLoss): # XXX to compare with BCE
-                    label = loss_functions.get_weight(batch, label, sigma=10) # default sigma is 20
                 loss = self.train_batch(batch, label, loss_function=self.loss_func) # train here
                 self.Loss.append(loss.item())
                 self.batch_time.append(timer()-batch_time_start)  ### TIMER

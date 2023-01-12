@@ -3,12 +3,13 @@ import numpy as np
 import torch
 import torchvision
 from torch.utils.data import DataLoader
+from torch.utils.data import Dataset
 
 '''
 '''
 
 class DataHandler():
-    def __init__(self, dataset, batch_size=64, shuffle=True, num_workers=0):
+    def __init__(self, dataset:Dataset, batch_size:int=64, shuffle:bool=True, num_workers:int=0):
         self.dataset = dataset
         self.dataloader = DataLoader(self.dataset, batch_size, shuffle, num_workers=num_workers) # create the dataloader from the dataset
         self.__iter = iter(self.dataloader)
