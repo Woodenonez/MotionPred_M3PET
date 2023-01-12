@@ -1,43 +1,52 @@
 import os, sys
-import math
 
 import torch
+
+from util.datatype import *
 import matplotlib.pyplot as plt
 
-def get_weight(grid, index, sigma, rho=0):
-    # grid is BxTxHxW (T is not used in this function)
-    # index is B x pair of numbers
-    # return weight in 
-    bs = grid.shape[0]
-    T = index.shape[1]
-    index = index[:,:,:,None,None]
+def get_weight(grid:torch.Tensor, coords:torch.Tensor, sigmas:Indexable, rho=0, normalized=True):
+    '''
+    Description
+        :Create a stack of ground truth masks to compare with the generated (energy) grid.
+    Argument
+        :grid - With size (BxTxHxW), the generated energy grid, used as the template.
+        :coords - With size (BxTxDo), T is the pred_len, Do is the output dimension (normally 2).
+        :sigmas - A tuple or list of sigma_x and sigma_y.
+        :rho - The correlation parameter, currently 0.
+        :normalized - Normalize the weight mask to 1 (then the weight mask is not a probability distribution anymore).
+    Return
+        :weight - With size (BxTxHxW), the same size as the grid.
+    '''
+    bs, T, H, W = grid.shape # batch_size, pred_offset, height, width
+    coords = coords[:,:,:,None,None]
 
-    if not isinstance(sigma, (tuple, list)):
-        sigma = (sigma, sigma)
-    sigma_x, sigma_y = sigma[0], sigma[1]
-    x = torch.arange(0, grid.shape[2], device=grid.device)
-    y = torch.arange(0, grid.shape[3], device=grid.device)
+    sigma_x, sigma_y = sigmas[0], sigmas[1]
+    x = torch.arange(0, W, device=grid.device)
+    y = torch.arange(0, H, device=grid.device)
     try:
-        x, y = torch.meshgrid(x, y, indexing='ij')
+        x, y = torch.meshgrid(x, y, indexing='xy')
     except:
-        x, y = torch.meshgrid(x, y)
+        y, x = torch.meshgrid(x, y) # indexing is 'ij', this is because the old torch version doesn't support indexing
     x, y = x.unsqueeze(0).repeat(bs,T,1,1), y.unsqueeze(0).repeat(bs,T,1,1)
-    in_exp = -1/(2*(1-rho**2)) * ((x-index[:,:,1])**2/(sigma_x**2) 
-                                + (y-index[:,:,0])**2/(sigma_y**2) 
-                                - 2*rho*(x-index[:,:,0])/(sigma_x)*(y-index[:,:,1])/(sigma_y))
-    z = 1/(2*math.pi*sigma_x*sigma_y*math.sqrt(1-rho**2)) * torch.exp(in_exp)
-    weight = z/(z.amax(dim=(2,3))[:,:,None,None])
-    weight[weight<0.1] = 0
+    in_exp = -1/(2*(1-rho**2)) * ((x-coords[:,:,0])**2/(sigma_x**2) 
+                                + (y-coords[:,:,1])**2/(sigma_y**2) 
+                                - 2*rho*(x-coords[:,:,0])/(sigma_x)*(y-coords[:,:,1])/(sigma_y))
+    weight = 1/(2*torch.pi*sigma_x*sigma_y*torch.sqrt(torch.tensor(1-rho**2))) * torch.exp(in_exp)
+    if normalized:
+        weight = weight/(weight.amax(dim=(2,3))[:,:,None,None])
+        weight[weight<0.1] = 0
     return weight
 
-def loss_nll(data, label, inputs=None, sigma:int=10, l2_factor:float=0.00):
+def loss_nll(data, label, sigmas:Indexable=[10,10], l2_factor:float=0.00, inputs:DebugTemp=None):
+    #TODO Double check the index is (i,j) or (x,y)
     r'''
-    data is the energy grid, label should be the index (i,j) meaning which grid cell to choose
-    :data  - BxCxHxW
-    :label - BxTxDo,   T:pred_len, Do: output dimension
+    Argument
+        :data  - (BxTxHxW), the energy grid
+        :label - (BxTxDo), T:pred_len, Do: output dimension [label should be the index (i,j) meaning which grid cell to choose]
     '''
 
-    weight = get_weight(data, label, sigma=sigma) # Gaussian fashion [BxTxHxW]
+    weight = get_weight(data, label, sigmas=sigmas) # Gaussian fashion [BxTxHxW]
 
     # XXX
     # print(f'Input size: {inputs.shape}; Energy grid size: {data.shape}; Weight grid size: {weight.shape}')
@@ -69,33 +78,14 @@ def loss_nll(data, label, inputs=None, sigma:int=10, l2_factor:float=0.00):
         nll = torch.sum(nll, dim=1)
     return torch.mean(nll)
 
-# XXX
-def loss_bnll(data, label, sigma:int=10, l2_factor:float=0.00):
+def loss_enll(data, label, sigmas:Indexable=[10,10], l2_factor:float=0.00):
     r'''
     data is the energy grid, label should be the index (i,j) meaning which grid cell to choose
     :data  - BxCxHxW
     :label - BxTxDo,   T:pred_len, Do: output dimension
     '''
 
-    weight = get_weight(data, label, sigma=sigma) # Gaussian fashion [BxTxHxW]
-
-    numerator_in_log   = torch.logsumexp(-data+torch.log(weight),   dim=(2,3))
-    denominator_in_log = torch.logsumexp(-data+torch.log(1-weight), dim=(2,3))
-
-    l2 = torch.sum(torch.pow(data,2),dim=(2,3)) / (data.shape[2]*data.shape[3])
-    nll = - numerator_in_log + denominator_in_log + l2_factor*l2
-    if len(label.shape) == 3:
-        nll = torch.sum(nll, dim=1)
-    return torch.mean(nll)
-
-def loss_enll(data, label, sigma:int=10, l2_factor:float=0.00):
-    r'''
-    data is the energy grid, label should be the index (i,j) meaning which grid cell to choose
-    :data  - BxCxHxW
-    :label - BxTxDo,   T:pred_len, Do: output dimension
-    '''
-
-    weight = get_weight(data, label, sigma=sigma) # Gaussian fashion [BxTxHxW]
+    weight = get_weight(data, label, sigmas=sigmas) # Gaussian fashion [BxTxHxW]
 
     numerator_in_log   = torch.log(torch.sum(data*weight, dim=(2,3)))
     denominator_in_log = torch.log(torch.sum(data, dim=(2,3)))
@@ -105,6 +95,7 @@ def loss_enll(data, label, sigma:int=10, l2_factor:float=0.00):
     if len(label.shape) == 3:
         nll = torch.sum(nll, dim=1)
     return torch.mean(nll)
+
 
 def loss_mse(data, labels): # for batch
     # data, labels - BxMxC
@@ -127,7 +118,7 @@ def loss_mae(data, labels): # for batch
     loss = abs_sum/data.shape[0] # BxM
     return loss
 
-if __name__ == '__main__':
+if __name__ == '__main__': # old tests
     import numpy as np
     from pathlib import Path
     from torchvision import transforms

@@ -8,7 +8,7 @@ This is used to load and dump parameters in the form of YAML
 '''
 
 file_name = 'sidv2e_1t10_train.yml'
-sl_path = os.path.join(Path(__file__).resolve().parents[2], 'Config/', file_name)
+sl_path = os.path.join(Path(__file__).resolve().parents[2], 'config/', file_name)
 
 general_param = {'pred_len'   : 10, 
                  'obsv_len'   : 5, 
@@ -24,15 +24,11 @@ training_param = {'epoch'                : 20,
                   'checkpoint_dir'       : 'Model/SID2e'
                   }
 
-# converting_param = {'x_max_px'   : 595,
-#                     'y_max_px'   : 326,
-#                     'cell_width' : 1}
-
 path_param = {'model_path': 'Model/sidv2e_1t10',
               'data_name':  'SID_1t10_train/5',
               }
-path_param['data_path']  = os.path.join('Data/', path_param['data_name'])
-path_param['label_path'] = os.path.join('Data/', path_param['data_name'], 'all_data.csv')
+path_param['data_path']  = os.path.join('data/', path_param['data_name'])
+path_param['label_path'] = os.path.join('data/', path_param['data_name'], 'all_data.csv')
 
 def to_yaml(data, save_path, style=None):
     with open(save_path, 'w') as f:

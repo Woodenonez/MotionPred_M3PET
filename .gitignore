@@ -4,11 +4,12 @@ __pycache__/
 
 # outdated dir
 Archieve/
-Data_V1/
+data_V1/
 src (data v1)/
 
 # large files or dir
 Data/SDD*
+data/
 
 # extra comment files
 draft.py

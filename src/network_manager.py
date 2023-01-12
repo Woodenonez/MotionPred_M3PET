@@ -1,31 +1,32 @@
 import os, sys
 from typing import Tuple
+from timeit import default_timer as timer
+from datetime import timedelta
 
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.cluster import DBSCAN
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from timeit import default_timer as timer
-from datetime import timedelta
-
 # from util import utils_kmean
-from sklearn.cluster import DBSCAN
-
 from net_module import loss_functions
+
+from data_handle.data_handler import DataHandler
 
 class NetworkManager():
     """ 
 
     """
-    def __init__(self, net, loss_dict:dict, training_parameter:dict, device:str='cuda', verbose:bool=False):
-        self.prt_name = '[NM]'
+    def __init__(self, net:nn.Module, loss_dict:dict, training_parameter:dict, device:str='cuda', verbose:bool=False):
+        self.__prt_name = '[NM]'
         self.vb = verbose
         self.device = device
         self.complete = False
-        self.load_parameters(training_parameter)
+        self.__load_parameters(training_parameter)
+        self.__training_time(None, None, None, init=True)
 
         self.Loss = []      # track the loss
         self.Val_loss= []   # track the validation loss
@@ -35,27 +36,16 @@ class NetworkManager():
             self.loss_func = loss_dict['loss']
             self.metric = loss_dict['metric']
         except:
-            print(self.prt_name, '>>> No loss function detected <<<')
+            print(self.__prt_name, '>>> No loss function detected <<<')
 
-        self.training_time(None, None, None, init=True)
-
-    def plot_history_loss(self):
-        plt.figure()
-        if len(self.Val_loss):
-            plt.plot(np.array(self.Val_loss)[:,0], np.array(self.Val_loss)[:,1], '.', label='val_loss')
-        plt.plot(np.linspace(1,len(self.Loss),len(self.Loss)), self.Loss, '.', label='loss')
-        plt.xlabel('#batch')
-        plt.ylabel('Loss')
-        plt.legend()
-
-    def load_parameters(self, training_parameter:dict):
+    def __load_parameters(self, training_parameter:dict):
         tp = training_parameter
         self.lr = tp['learning_rate']
         self.wr = tp['weight_regularization'] # L2 regularization
         self.es = tp['early_stopping']
         self.cp = tp['checkpoint_dir']
 
-    def training_time(self, remaining_epoch, remaining_batch, batch_per_epoch, init=False):
+    def __training_time(self, remaining_epoch, remaining_batch, batch_per_epoch, init=False):
         if init:
             self.batch_time = []
             self.epoch_time = []
@@ -68,11 +58,19 @@ class NetworkManager():
             eta = round(epoch_time_average * remaining_epoch + batch_time_average * remaining_batch, 1)
             return timedelta(seconds=batch_time_average), timedelta(seconds=epoch_time_average), timedelta(seconds=eta)
 
+    def plot_history_loss(self):
+        plt.figure()
+        if len(self.Val_loss):
+            plt.plot(np.array(self.Val_loss)[:,0], np.array(self.Val_loss)[:,1], '.', label='val_loss')
+        plt.plot(np.linspace(1,len(self.Loss),len(self.Loss)), self.Loss, '.', label='loss')
+        plt.xlabel('#batch')
+        plt.ylabel('Loss')
+        plt.legend()
+
+
     def build_Network(self):
         self.gen_model()
         self.gen_optimizer(self.model.parameters())
-        # if self.vb:
-        #     print(self.prt_name, '\n', self.model)
 
     def gen_model(self):
         self.model = nn.Sequential()
@@ -82,7 +80,7 @@ class NetworkManager():
         elif self.device == 'cuda':
             self.model = self.model.to(torch.device("cuda:0"))
         elif self.device != 'cpu':
-            raise ModuleNotFoundError(f'{self.prt_name} No such device as {self.device} (should be "multi", "cuda", or "cpu").')
+            raise ModuleNotFoundError(f'{self.__prt_name} No such device as {self.device} (should be "multi", "cuda", or "cpu").')
         return self.model
 
     def gen_optimizer(self, parameters):
@@ -90,13 +88,13 @@ class NetworkManager():
         self.lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer=self.optimizer, gamma=0.99)
         return self.optimizer
 
-    def inference(self, data):
-        device = 'cpu'
+
+    def inference(self, data:torch.Tensor, device:str='cpu'):
         if self.device in ['multi', 'cuda']:
             device = torch.device("cuda:0")
         with torch.no_grad():
-            e_grid = self.model(data.float().to(device))
-        return e_grid
+            output = self.model(data.float().to(device))
+        return output
 
     def validate(self, data, labels, loss_function=None):
         if loss_function is None:
@@ -127,8 +125,9 @@ class NetworkManager():
         self.optimizer.step()
         return loss
 
-    def train(self, data_handler_train, data_handler_val, batch_size, epochs, current_epoch=0, runon='LOCAL'):
-        print(f'\n{self.prt_name} Training...')
+    def train(self, data_handler_train:DataHandler, data_handler_val:DataHandler,
+                    batch_size:int, epochs:int, current_epoch:int=0, runon:str='LOCAL'):
+        print(f'\n{self.__prt_name} Training...')
         if runon == 'LOCAL':
             report_after_batch = 10   # XXX 10 for test, 1000 for train
         elif runon == 'REMOTE':
@@ -136,16 +135,16 @@ class NetworkManager():
         else:
             raise ModuleNotFoundError('RUNON ERROR.')
 
-        device = 'cpu'
         if self.device in ['multi', 'cuda']:
-            device = torch.device("cuda:0")
+            device = 'cuda'
+        else:
+            device = 'cpu'
 
+        ### Training
+        min_test_loss = np.Inf # used to evaluate current model on val_dataset
         num_batch_per_epoch = data_handler_train.get_num_batch()
-        num_epochs_no_improve = 0
-        min_test_loss = np.Inf
         cnt = 0 # counter for batches over all epochs
         for ep in range(epochs):
-            ### Training
             if ep<current_epoch:
                 continue
 
@@ -156,34 +155,29 @@ class NetworkManager():
                 cnt += 1
                 cnt_per_epoch += 1
 
-                if (runon == 'LOCAL') & (cnt_per_epoch>200): # XXX
-                    break
-
                 batch_time_start = timer() ### TIMER
-
                 batch, label = data_handler_train.return_batch()
                 batch, label = batch.float().to(device), label.float().to(device)
-                if isinstance(self.loss_func, torch.nn.BCEWithLogitsLoss):
+                
+                if isinstance(self.loss_func, torch.nn.BCEWithLogitsLoss): # XXX to compare with BCE
                     label = loss_functions.get_weight(batch, label, sigma=10) # default sigma is 20
-
                 loss = self.train_batch(batch, label, loss_function=self.loss_func) # train here
                 self.Loss.append(loss.item())
-
                 self.batch_time.append(timer()-batch_time_start)  ### TIMER
 
-                if np.isnan(loss.item()): # assert(~np.isnan(loss.item())),("Loss goes to NaN!")
-                    print(f"{self.prt_name} Loss goes to NaN! Fail after {cnt} batches.")
+                if np.isnan(loss.item()):
+                    print(f"{self.__prt_name} Loss goes to NaN! Fail after {cnt} batches.")
                     self.complete = False
-                    return
+                    return -1
 
                 if (cnt_per_epoch%report_after_batch==0 or cnt_per_epoch==num_batch_per_epoch) & (self.vb):
-                    _, _, eta = self.training_time(epochs-ep-1, num_batch_per_epoch-cnt_per_epoch, num_batch_per_epoch) # TIMER
+                    _, _, eta = self.__training_time(epochs-ep-1, num_batch_per_epoch-cnt_per_epoch, num_batch_per_epoch) # TIMER
                     prt_loss = f'Training loss: {round(loss.item(),4)}'
                     prt_num_samples = f'{cnt_per_epoch*batch_size/1000}k/{num_batch_per_epoch*batch_size/1000}k'
                     prt_num_epoch = f'Epoch {ep+1}/{epochs}'
                     prt_eta = f'ETA {eta}'
-                    print(f'\r{self.prt_name} {prt_loss}, {prt_num_samples}, {prt_num_epoch}, {prt_eta}       ', end='')
-            # epoch done
+                    print(f'\r{self.__prt_name} {prt_loss}, {prt_num_samples}, {prt_num_epoch}, {prt_eta}       ', end='')
+            ### Epoch training done
 
             ### Testing
             # cnt_per_epoch = 0 # counter for batches within the epoch
@@ -212,14 +206,14 @@ class NetworkManager():
             #     num_epochs_no_improve += 1
 
             # if (self.es > 0) & (num_epochs_no_improve >= self.es):
-            #     print(f'\n{self.prt_name} Early stopping after {self.es} epochs with no improvement.')
+            #     print(f'\n{self.__prt_name} Early stopping after {self.es} epochs with no improvement.')
             #     break
             ### Test end
 
             self.epoch_time.append(timer()-epoch_time_start)  ### TIMER
             self.lr_scheduler.step() # end while
         self.complete = True
-        print(f'\n{self.prt_name} Training Complete!')
+        print(f'\n{self.__prt_name} Training Complete!')
 
     def test(self, data, label, input_prob:False):
         outputs = self.model(data)
@@ -299,6 +293,7 @@ class NetworkManager():
     def gen_samples(prob_map:torch.tensor, num_samples, replacement=False):
         prob_map_flat = prob_map.view(prob_map.size(0) * prob_map.size(1), -1)
         # samples.shape: [batch*timestep, num_samples] -> [batch, timestep, num_samples]
+        # or torch.distributions.categorical.Categorical()
         samples = torch.multinomial(prob_map_flat, num_samples=num_samples, replacement=replacement)
         # unravel sampled idx into coordinates of shape [batch, time, sample, 2]
         samples = samples.view(prob_map.size(0), prob_map.size(1), -1)
