@@ -27,7 +27,7 @@ def get_weight(grid:torch.Tensor, coords:torch.Tensor, sigmas:Indexable, rho=0, 
     try:
         x, y = torch.meshgrid(x, y, indexing='xy')
     except:
-        y, x = torch.meshgrid(x, y) # indexing is 'ij', this is because the old torch version doesn't support indexing
+        y, x = torch.meshgrid(y, x) # indexing is 'ij', this is because the old torch version doesn't support indexing
     x, y = x.unsqueeze(0).repeat(bs,T,1,1), y.unsqueeze(0).repeat(bs,T,1,1)
     in_exp = -1/(2*(1-rho**2)) * ((x-coords[:,:,0])**2/(sigma_x**2) 
                                 + (y-coords[:,:,1])**2/(sigma_y**2) 
