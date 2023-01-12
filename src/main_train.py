@@ -10,7 +10,7 @@ from data_handle import data_handler as dh
 
 import pre_load
 
-print("Program: training\n")
+print("Program: training...\n")
 
 # DATASET = 'GCD'
 # MODE = 'TRAIN'  # 'TRAIN' or 'TEST'
@@ -42,6 +42,8 @@ if RUNON == 'LOCAL':
 else:
     BATCH_SIZE = None
     num_workers = 4
+
+print(f'Run in the mode: {RUNON}!\n')
 
 ### Config
 root_dir = Path(__file__).parents[1]
