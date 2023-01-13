@@ -6,7 +6,7 @@ import torchvision
 
 from net_module import loss_functions as loss_func
 from net_module.net import UNetPlain, UNetPos, E3Net
-from data_handle import data_handler as dh
+from _data_handle_mmp import data_handler as dh
 
 import pre_load
 
@@ -49,10 +49,10 @@ print(f'Run in the mode: {RUNON}!\n')
 root_dir = Path(__file__).parents[1]
 
 # loss = {'loss': torch.nn.BCEWithLogitsLoss(), 'metric': loss_func.loss_mae}
-loss = {'loss': loss_func.loss_nll, 'metric': loss_func.loss_mae}
-# loss = {'loss': loss_func.loss_enll, 'metric': loss_func.loss_mae}
+# loss = {'loss': loss_func.loss_nll, 'metric': loss_func.loss_mae}
+loss = {'loss': loss_func.loss_enll, 'metric': loss_func.loss_mae}
 
-Net = UNetPlain
+Net = UNetPos
 # Net = E3Net
 
 config_file = pre_load.load_config_fname(DATASET, PRED_RANGE, MODE)

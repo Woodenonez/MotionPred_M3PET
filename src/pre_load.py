@@ -4,20 +4,24 @@ import pickle
 from datetime import datetime
 
 import torch
-
 import matplotlib.pyplot as plt
 
 from network_manager import NetworkManager
 # from network_manager_multiout import NetworkManager
-from data_handle import data_handler as dh
-from data_handle import dataset as ds
+from _data_handle_mmp import data_handler as dh
+from _data_handle_mmp import dataset as ds
 
 from util import utils_yaml
+
+### Typehint only
+import numpy as np
 
 
 __PRT_NAME = '[PRE]'
 
 def check_device():
+    '''Check if GPUs are available. Record the current time.
+    '''
     if torch.cuda.is_available():
         print('GPU count:', torch.cuda.device_count(),
               'First GPU:', torch.cuda.current_device(), torch.cuda.get_device_name(0))
@@ -53,11 +57,14 @@ def load_data(param, paths, transform, num_workers=0, T_range=None, ref_image_na
     print(f'{__PRT_NAME} Sample (shape): \'image\':',myDS[0]['input'].shape,'\'label\':',myDS[0]['target'].shape)
     return myDS, myDH
 
-def load_manager(param, Net, loss, verbose=True):
-    # en_chs = [16, 32,  64,  128, 256] # XXX
-    # de_chs = en_chs[::-1]             # XXX
-    # net = Net(param['input_channel'], en_chs, de_chs, param['pred_len'], out_layer=None) # XXX
-    net = Net(param['input_channel'],  param['pred_len']) # in, out channels
+def load_manager(param, Net:torch.nn.Module, loss:dict, encoder_channels=None, decoder_channels=None, verbose=True):
+    if (encoder_channels is not None) & (decoder_channels is not None):
+        net = Net(param['input_channel'], num_classes=param['pred_len'], 
+                  en_channels=encoder_channels, de_channels=decoder_channels, out_layer=None)
+        # en_chs = [16, 32,  64,  128, 256] # XXX
+        # de_chs = en_chs[::-1]             # XXX
+    else:
+        net = Net(param['input_channel'], num_classes=param['pred_len'], ) # in, out channels
     myNet = NetworkManager(net, loss, training_parameter=param, device=param['device'], verbose=verbose)
     myNet.build_Network()
     return myNet
@@ -71,7 +78,7 @@ def save_profile(manager:NetworkManager, save_path:str='./'): # NOTE optional
     with open(os.path.join(save_path, dt+'.pickle'), 'wb') as pf:
         pickle.dump(loss_dict, pf)
 
-def main_train(root_dir, config_file, transform, Net, loss, num_workers:int, batch_size:int=None, 
+def main_train(root_dir, config_file, transform, Net:torch.nn.Module, loss:dict, num_workers:int, batch_size:int=None, 
                T_range:tuple=None, ref_image_name:str=None, image_ext='png', runon='LOCAL'):
     ### Check and load
     check_device()
@@ -96,7 +103,7 @@ def main_train(root_dir, config_file, transform, Net, loss, num_workers:int, bat
 
     save_profile(myNet)
 
-def main_test_pre(root_dir, config_file, transform, Net, ref_image_name:str=None, verbose=False):
+def main_test_pre(root_dir, config_file, transform, Net:torch.nn.Module, ref_image_name:str=None, verbose=False):
     ### Check and load
     param = load_param(root_dir, config_file)
     paths = load_path(param, root_dir)
@@ -109,15 +116,15 @@ def main_test_pre(root_dir, config_file, transform, Net, ref_image_name:str=None
         myNet = None
     return myDS, myDH, myNet
 
-def main_test(dataset, net, idx:int):
+def main_test(dataset:ds.ImageStackDataset, net_manager:NetworkManager, idx:int):
     try:
         ref = dataset[idx]['ref']
     except:
         ref = None
-    img   = dataset[idx]['input']
-    label = dataset[idx]['target']
+    img:torch.Tensor   = dataset[idx]['input']  # originally np.ndarray
+    label:torch.Tensor = dataset[idx]['target'] # originally np.ndarray
     traj  = dataset[idx]['traj']
     index = dataset[idx]['index']
-    pred = net.inference(img.unsqueeze(0))
+    pred = net_manager.inference(img.unsqueeze(0))
     traj = torch.tensor(traj)
     return img, label, traj, index, pred.cpu(), ref

@@ -1,5 +1,6 @@
-import os, sys
-from pathlib import Path
+import os
+import sys
+import pathlib
 from copy import deepcopy as copy
 
 import numpy as np
@@ -8,22 +9,17 @@ import matplotlib.pyplot as plt
 import torch
 import torchvision
 
-from net_module.net import UNet, UNet_PELU, UNetLite, UNetLite_PELU, UNetLite_SP
-from data_handle import data_handler as dh
-from data_handle import dataset as ds
+from net_module.net import UNetPlain, UNetPos, UNet
+from _data_handle_mmp import data_handler as dh
+from _data_handle_mmp import dataset as ds
 
 import pre_load
 from util import utils_test
 
 from sklearn.mixture import GaussianMixture
 
-print("Program: testing\n")
-if torch.cuda.is_available():
-    print(torch.cuda.current_device(),torch.cuda.get_device_name(0))
-else:
-    print(f'CUDA not working! Pytorch: {torch.__version__}.')
-    sys.exit(0)
-torch.cuda.empty_cache()
+print("Program: testing...\n")
+pre_load.check_device()
 
 ### XXX Back to energy map
 def back2energy(x):
@@ -34,18 +30,21 @@ def back2energy(x):
 
 
 ### Config
-root_dir = Path(__file__).parents[1]
+root_dir = pathlib.Path(__file__).resolve().parents[1]
+
 # config_file = 'sdd_1t12_train.yml'
 # ref_image_name = 'label.png'
-# # config_file = 'gcd_1t20_train.yml'
-# # ref_image_name = None
-config_file = 'sidv2x_1t10_train.yml'
+config_file = 'gcd_1t20_train.yml'
 ref_image_name = None
+# config_file = 'sidv2e_1t10_train.yml'
+# ref_image_name = None
+# config_file = 'ald_1t20_train.yml'
+# ref_image_name = 'label.png'
 param = pre_load.load_param(root_dir, config_file, verbose=False)
 
 composed = torchvision.transforms.Compose([dh.ToTensor()])
 Dataset = ds.ImageStackDataset
-Net = UNetLite_PELU
+Net = UNet
 
 ### Prepare
 dataset, _, net = pre_load.main_test_pre(root_dir, config_file, composed, Net, ref_image_name=ref_image_name)
@@ -66,7 +65,7 @@ for idx in idc:
     
     img, label, traj, index, e_grid, ref = pre_load.main_test(dataset, net, idx=idx)
 
-    # prob_map = net.convert_grid2prob(e_grid.clone(), threshold=0.1, temperature=1)
+    # prob_map = net.convert_grid2prob(e_grid.clone(), threshold=0.9, temperature=1)
 
     # prob_map = torch.sigmoid(e_grid)
 
@@ -134,7 +133,7 @@ for idx in idc:
     plt.draw()
     if pause_time==0:
         plt.pause(0.01)
-        while not plt.waitforbuttonpress():  # XXX press a button to continue
+        while not plt.waitforbuttonpress():
             pass
     else:
         plt.pause(pause_time)

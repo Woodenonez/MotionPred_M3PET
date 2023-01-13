@@ -14,13 +14,21 @@ import torch.optim as optim
 # from util import utils_kmean
 from net_module import loss_functions
 
-from data_handle.data_handler import DataHandler
+from _data_handle_mmp.data_handler import DataHandler
 
-class NetworkManager():
-    """ 
-
-    """
+class NetworkManager:
+    '''
+    Decription
+        :Manage training the given network and inference/test.
+    '''
     def __init__(self, net:nn.Module, loss_dict:dict, training_parameter:dict, device:str='cuda', verbose:bool=False):
+        '''
+        Argument
+            :net - Pytorch Module, the network.
+            :loss_dict - Dictionary with loss functions, should have "loss" and "metric (can be None)".
+            :training_parameter - Dictionary with all training parameters, such as the learning rate.
+            :device - The device for running the program, should be "cpu", "cuda", or "multi (multiple GPUs)".
+        '''
         self.__prt_name = '[NM]'
         self.vb = verbose
         self.device = device
@@ -39,11 +47,10 @@ class NetworkManager():
             print(self.__prt_name, '>>> No loss function detected <<<')
 
     def __load_parameters(self, training_parameter:dict):
-        tp = training_parameter
-        self.lr = tp['learning_rate']
-        self.wr = tp['weight_regularization'] # L2 regularization
-        self.es = tp['early_stopping']
-        self.cp = tp['checkpoint_dir']
+        self.lr = training_parameter['learning_rate']
+        self.wr = training_parameter['weight_regularization'] # L2 regularization
+        self.es = training_parameter['early_stopping']
+        self.cp = training_parameter['checkpoint_dir']
 
     def __training_time(self, remaining_epoch, remaining_batch, batch_per_epoch, init=False):
         if init:
@@ -89,7 +96,7 @@ class NetworkManager():
         return self.optimizer
 
 
-    def inference(self, data:torch.Tensor, device:str='cpu'):
+    def inference(self, data:torch.Tensor, device='cpu') -> torch.Tensor:
         if self.device in ['multi', 'cuda']:
             device = torch.device("cuda:0")
         with torch.no_grad():
@@ -216,7 +223,7 @@ class NetworkManager():
         print(f'\n{self.__prt_name} Training Complete!')
 
     def test(self, data, label, input_prob:False):
-        outputs = self.model(data)
+        outputs:torch.Tensor = self.model(data)
         if not input_prob:
             prob_map = self.convert_grid2prob(outputs)
         traj_samples = self.gen_samples(prob_map, num_samples=100, replacement=True)
@@ -234,7 +241,7 @@ class NetworkManager():
 
 
     @staticmethod
-    def save_checkpoint(model, optimizer, save_path, epoch, loss):
+    def save_checkpoint(model:nn.Module, optimizer:optim.Optimizer, save_path:str, epoch, loss):
         save_info = {'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'epoch': epoch,
@@ -242,7 +249,7 @@ class NetworkManager():
         torch.save(save_info, save_path)
 
     @staticmethod
-    def load_checkpoint(model, optimizer, load_path):
+    def load_checkpoint(model:nn.Module, optimizer:optim.Optimizer, load_path:str):
         checkpoint = torch.load(load_path)
         model.load_state_dict(checkpoint['model_state_dict'])
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -273,24 +280,43 @@ class NetworkManager():
         return mu_list, std_list
 
     @staticmethod
-    def convert_grid2prob(grid:torch.tensor, threshold=0.1, temperature=1):
-        '''
-        Convert energy grids (BxTxHxW) to probablity maps.
-        '''
-        threshold = threshold*torch.amin(grid, dim=(2,3))
-        grid[grid>threshold[:,:,None,None]] = torch.tensor(float('inf'))
+    def convert_exp2prob(exp_energy:torch.Tensor):
+        prob_map = exp_energy / torch.sum(exp_energy.view(exp_energy.shape[0], exp_energy.shape[1], -1), dim=-1, keepdim=True).unsqueeze(-1).expand_as(exp_energy)
 
-        grid = grid / torch.abs(torch.amin(grid, dim=(2,3)))[:,:,None,None]
-
-        grid_exp = torch.exp(-temperature*grid)
-        prob_map = grid_exp / torch.sum(grid_exp.view(grid.shape[0], grid.shape[1], -1), dim=-1, keepdim=True).unsqueeze(-1).expand_as(grid)
-        prob_map[prob_map>1] = 1
         if torch.any(torch.isnan(prob_map)):
             raise ValueError('Nan in probability map!')
         return prob_map
 
     @staticmethod
-    def gen_samples(prob_map:torch.tensor, num_samples, replacement=False):
+    def convert_grid2prob(grid:torch.Tensor, threshold=0.9, temperature=1):
+        '''
+        Description
+            :Convert energy grids (BxTxHxW) to probablity maps. High energy means low probability.
+        Argument
+            :grid - The energy grid.
+            :threshold - Within (0,1], ignore too large energy (as infinity). If 1, accept all values.
+            :temperature - The temperature from energy grid to probability map.
+        Example
+            - For a grid !E and threshold !a, if e_ij>e_thre, e_ij=Inf, where e_thre=(e_max-e_min)*a+e_min.
+        '''
+        grid_ = grid.clone()
+
+        energy_min = torch.amin(grid_, dim=(2,3))
+        energy_max = torch.amax(grid_, dim=(2,3))
+        energy_thre = energy_min + threshold * (energy_max - energy_min) # shape (bs*T)
+        grid_[grid_>energy_thre[:,:,None,None]] = torch.tensor(float('inf'))
+
+        grid_ = grid_ / torch.abs(torch.amin(grid_, dim=(2,3)))[:,:,None,None]
+
+        grid_exp = torch.exp(-temperature*grid_)
+        prob_map = grid_exp / torch.sum(grid_exp.view(grid_.shape[0], grid_.shape[1], -1), dim=-1, keepdim=True).unsqueeze(-1).expand_as(grid_)
+
+        if torch.any(torch.isnan(prob_map)):
+            raise ValueError('Nan in probability map!')
+        return prob_map
+
+    @staticmethod
+    def gen_samples(prob_map:torch.Tensor, num_samples, replacement=False):
         prob_map_flat = prob_map.view(prob_map.size(0) * prob_map.size(1), -1)
         # samples.shape: [batch*timestep, num_samples] -> [batch, timestep, num_samples]
         # or torch.distributions.categorical.Categorical()
@@ -304,7 +330,7 @@ class NetworkManager():
         return preds
 
     @staticmethod
-    def softargmax_torch(X:torch.tensor) -> tuple:
+    def softargmax_torch(X:torch.Tensor) -> tuple:
         assert(torch.is_tensor(X) & len(X.shape) == 4), ('Softargmax input error.')
         x = X.view(X.shape[0], X.shape[1], -1)
 

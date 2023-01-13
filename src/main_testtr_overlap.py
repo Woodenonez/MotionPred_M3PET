@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import torch
 import torchvision
 
-from net_module.net import UNet, UNetLite, UNetLite_PELU
+from net_module.net import UNetPlain, UNetPos
 from data_handle import data_handler as dh
 from data_handle import dataset as ds
 
@@ -38,15 +38,17 @@ def back2energy(x):
 root_dir = Path(__file__).parents[1]
 # config_file = 'sdd_1t12_train.yml'
 # ref_image_name = 'label.png'
-config_file = 'gcd_1t20_train.yml'
-ref_image_name = None
+# config_file = 'gcd_1t20_train.yml'
+# ref_image_name = None
 # config_file = 'sidv2c_1t10_train.yml'
 # ref_image_name = None
+config_file = 'ald_1t20_train.yml'
+ref_image_name = 'label.png'
 param = pre_load.load_param(root_dir, config_file, verbose=False)
 
 composed = torchvision.transforms.Compose([dh.ToTensor()])
 Dataset = ds.ImageStackDataset
-Net = UNetLite_PELU
+Net = UNetPlain
 
 ### Prepare
 dataset, _, net = pre_load.main_test_pre(root_dir, config_file, composed, Net, ref_image_name=ref_image_name)
@@ -67,7 +69,7 @@ for idx in idc:
     
     img, label, traj, index, e_grid, ref = pre_load.main_test(dataset, net, idx=idx)
     try:
-        prob_map = net.convert_grid2prob(e_grid.clone(), threshold=0.1, temperature=1)
+        prob_map = net.convert_grid2prob(e_grid.clone(), threshold=0.9, temperature=1)
     except:
         prob_map = e_grid.clone()
         prob_map[prob_map<0.011] = 0

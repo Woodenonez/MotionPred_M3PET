@@ -15,7 +15,7 @@ class UNetPlain(nn.Module):
     Comment
         :The input size is (batch x channel x height x width).
     '''
-    def __init__(self, in_channels, num_classes=1, with_batch_norm=True, bilinear=True, lite:bool=True):
+    def __init__(self, in_channels, num_classes, with_batch_norm=True, bilinear=True, lite:bool=True):
         super(UNetPlain,self).__init__()
         self.unet = UNet(in_channels, num_classes, with_batch_norm, bilinear, lite=lite)
 
@@ -29,7 +29,7 @@ class UNetPos(nn.Module):
         :A modified UNet implementation with an output layer that only outputs positive values.
         :The output layer can be 'softplus', 'poselu'.
     '''
-    def __init__(self, in_channels, num_classes=1, with_batch_norm=True, bilinear=True, lite:bool=True, out_layer:str='softplus'):
+    def __init__(self, in_channels, num_classes, with_batch_norm=True, bilinear=True, lite:bool=True, out_layer:str='poselu'):
         super(UNetPos,self).__init__()
         if out_layer.lower() not in ['softplus', 'poselu']:
             raise ValueError(f'The output layer [{out_layer}] is not recognized.')
@@ -50,7 +50,7 @@ class E3Net(nn.Module): #
     Comment
         :The input size is (batch x channel x height x width).
     '''
-    def __init__(self, in_channels, en_channels, de_channels, num_classes=1, with_batch_norm=False, out_layer:str='softplus'):
+    def __init__(self, in_channels, num_classes, en_channels, de_channels, with_batch_norm=False, out_layer:str='softplus'):
         super(E3Net,self).__init__()
         if (out_layer is not None): 
             if (out_layer.lower() not in ['softplus', 'poselu']):
